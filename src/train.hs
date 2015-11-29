@@ -19,12 +19,38 @@ data Word = Word { value :: String
 main :: IO ()
 main = do
     f <- TIO.readFile "source.text"
-    r <- parseSentences $ T.words f
+    s <- makeSentences $ T.words f
+    print s
 
 -- Returns a list representing a sentence from a list of all words
-splitToSentence :: [Text] -> Maybe [Text]
-splitToSentence [] = Nothing
-splitToSentence = L.dropWhileEnd (\x -> T.any (=='.') x)
+splitToSentence :: ([[Text]], [Text]) -> Text -> ([[Text]], [Text])
+splitToSentence a x =
+    let l = fst a
+        s = snd a ++ [x]
+    in if T.any (=='.') x
+    then
+        -- l is a list of lists
+        return ([s]:l, [])
+    else
+        return (l, s)
+
+-- Create a list of sentences from list of words
+makeSentences :: [Text] -> [[Text]]
+makeSentences t = do
+    r <- foldl splitToSentence ([[]], []) x
+    l = fst r
+    s = snd r
+    if s == []
+    then
+        return l
+    else
+        return [s]:l
+
+-- Gives valid Word either from map or new
+giveWord :: String -> WordMap -> Word
+giveWord k m = do
+    let d = Word {value=k,count=0,next=[]}
+    return M.lookupDefault d k m
 
 -- Add word to hash map if its not already there
 startChain :: Maybe [Text] -> WordMap -> WordMap
@@ -32,9 +58,8 @@ startChain Nothing = Nothing
 startChain (Just []) m = m
 startChain (Just [x:xs]) m = do
     k <- unpack x
-    let d = Word {value=x,count=0,next=[]}
-    v <- M.lookupDefault d k m
-    let v' = Word {value=x,count = (count v)+1, next=(next v)}
+    v <- giveWord x m
+    let v' = Word {value=k,count = (count v)+1, next=(next v)}
     let m' = M.insert k v' m
 
 
